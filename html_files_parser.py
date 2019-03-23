@@ -3,7 +3,7 @@ from time import time
 import re
 import html2text
 
-root_dir = '/home/gringet/websites/www.metallyrica.com/lyrica/'
+root_dir = '/home/ubuntu/data/lyrica/'
 first_line_index = 123
 n_song = 0
 t0 = time()
@@ -11,7 +11,7 @@ t0 = time()
 def print_song(song):
     global n_song
     n_song += 1
-    h = html2text.HTML2Text() 
+    h = html2text.HTML2Text()
     sanity_chars = ['[', ']', '(', ')', '\\', '/', ' -', u'\uFFFD']
     sanity_regexs = [
         re.compile(r'\[([\w\d\s]*?)\]'),
@@ -29,6 +29,7 @@ def print_song(song):
     # translate html characters
     for line in lines:
         line = h.handle(line)
+        print(line)
 
 # Walk in root folder
 for root, dirs, files in os.walk(root_dir):
