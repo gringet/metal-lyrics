@@ -1,10 +1,35 @@
 import os
+from time import time
+import re
+import html2text
 
-root_dir = '/media/DATA/gringet/lyrica/www.metallyrica.com/lyrica'
-first_line = 123
-except_count = 0
-n_files = 0
-song = 0
+root_dir = '/home/gringet/websites/www.metallyrica.com/lyrica/'
+first_line_index = 123
+n_song = 0
+t0 = time()
+
+def print_song(song):
+    global n_song
+    n_song += 1
+    h = html2text.HTML2Text() 
+    sanity_chars = ['[', ']', '(', ')', '\\', '/', ' -', u'\uFFFD']
+    sanity_regexs = [
+        re.compile(r'\[([\w\d\s]*?)\]'),
+        re.compile(r'\(([\w\d\s]*?)\)')
+    ]
+    # supress [xxxxx] and (xxxxx) strings
+    for sanity_regex in sanity_regexs:
+        matchs = sanity_regex.findall(song)
+        for match in matchs:
+            song = song.replace(match, '')
+    # supress non wanted characters
+    for sanity_char in sanity_chars:
+        song = song.replace(sanity_char, '')
+    lines = song.split('\n')
+    # translate html characters
+    for line in lines:
+        line = h.handle(line)
+
 # Walk in root folder
 for root, dirs, files in os.walk(root_dir):
     # For each file
@@ -14,38 +39,33 @@ for root, dirs, files in os.walk(root_dir):
             file_path = os.path.join(root, name)
             # Read file
             with open(file_path, 'r', errors='replace') as f:
-                print(file_path)
-                # Go to first lyrics line
-                for i in range(first_line):
-                    _ = f.readline()
-                # Read first line an verify if songs exists
-                line = f.readline()
-                if not line.endswith('</CENTER>\n'):
-                    line = line.split('>')[-1]
-                    # Verify if song is not garbage
-                    if not line.count('&') + line.count(';') >= 2:
-                        print('BEGINNING OF SONG\n')
-                        print(line)
-                        song = song + 1
-                        # Read song
-                        while(True):
-                            line = f.readline()
-                            # verify end of songs
-                            if line.endswith('</CENTER>\n'):
-                                line = line.split('>')[1]
-                                print(line[:-3] + '\n END OF SONGS')
-                                break
-                            # verify new song
-                            elif line.count('<br>') > 1:
-                                line = line.split('>')
-                                print(line[1][:-3])
-                                print('NEW SONG')
-                                print(line[-1])
-                            # simple song line
+                is_song = False
+                for i, line in enumerate(f):
+                    # Go to first lyrics line
+                    if i == first_line_index:
+                        # BEGINNING OF SONGS
+                        if not line.endswith('</CENTER>\n'):
+                            is_song = True
+                            current_song = line.split('>')[-1]
+                    elif is_song:
+                        # END OF SONGS
+                        if line.endswith('</CENTER>\n'):
+                            current_song += line.split('<br>')[0]
+                            print_song(current_song)
+                            is_song = False
+                        # NEW SONG
+                        elif line.count('<br>') > 1:
+                            # LAST SONG LINE
+                            if line.startswith('<br>'):
+                                current_song += line.split('<br>')[1]
                             else:
-                                line = line.split('>')[1]
-                                print(line)
-                            # Cut to text
-                            # line = line.split('>')[-1]
-print(song)
+                                current_song += line.split('<br>')[0]
+                            print_song(current_song)
+                            # FIRST NEW SONG LINE
+                            current_song = line.split('>')[-1]
+                        # CURRENT SONG LINE
+                        else:
+                            current_song += line.split('>')[-1]
+
+print('Songs: {}\nTime: {} \nTime per song: {}'.format(n_song, time() - t0, (time() - t0) / n_song))
 
