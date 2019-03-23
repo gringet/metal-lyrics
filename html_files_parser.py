@@ -12,12 +12,12 @@ def print_song(song):
     global n_song
     n_song += 1
     h = html2text.HTML2Text() 
-    sanity_chars = ['[', ']', '(', ')', '\\', '/', ' -', u'\uFFFD']
+    sanity_chars = ['[', ']', '(', ')', '\\', '/', ' -', ':', ';', u'\uFFFD']
     sanity_regexs = [
         re.compile(r'\[([\w\d\s]*?)\]'),
         re.compile(r'\(([\w\d\s]*?)\)')
     ]
-    # supress [xxxxx] and (xxxxx) strings
+    # supress [xxxxx] and (xxxxx) strings (e.g. [CHORUS])
     for sanity_regex in sanity_regexs:
         matchs = sanity_regex.findall(song)
         for match in matchs:
