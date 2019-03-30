@@ -20,12 +20,81 @@ batch_size = 128
 epochs = 1000
 steps = int(len(data.songs) / batch_size * epochs)
 
+def sample(preds, temperature=1.0):
+    """Perform Temperature Sampling"""
+    # helper function to sample an index from a probability array
+    preds = np.asarray(preds).astype('float64')
+    preds = np.log(preds) / temperature
+    exp_preds = np.exp(preds)
+    # Softmax of predictions
+    preds = exp_preds / np.sum(exp_preds)
+    # Sample a single characters, with probabilities defined in `preds`
+    probas = np.random.multinomial(1, preds, 1)
+    return np.argmax(probas)
+
+
+def on_epoch_end(epoch, _):
+    """Function invoked at end of each epoch. Prints generated text"""
+    print()
+    print('----- Generating text after Epoch: %d' % epoch)
+
+    start_index = random.randint(0, len(text) - maxlen - 1)
+    for diversity in [0.2, 0.5, 1.0, 1.2]:
+        print('----- Diversity:', diversity)
+
+        generated = ''
+        sentence = text[start_index: start_index + maxlen]
+        generated += sentence
+        print('----- Generating with seed: "' + sentence + '"')
+        sys.stdout.write(generated)
+
+        for i in range(400):
+            x_pred = np.zeros((1, maxlen, len(chars)))
+            for t, char in enumerate(sentence):
+                x_pred[0, t, char_indices[char]] = 1.
+
+            preds = model.predict(x_pred, verbose=0)[0]
+            # Generate next character
+            next_index = sample(preds, diversity)
+            next_char = indices_char[next_index]
+            # Append character to generated sequence
+            generated += next_char
+            sentence = sentence[1:] + next_char
+
+            sys.stdout.write(next_char)
+            sys.stdout.flush()
+        print()
+
+    # Save model weights into file
+    model.save_weights('saved_weights.hdf5', overwrite=True)
+
+# After every single epoch, we are going to call the function on_epoch_end
+# to generate some text.
+print_callback = LambdaCallback(on_epoch_end=on_epoch_end)
+checkpointer = ModelCheckpoint(filepath='/tmp/weights.hdf5', verbose=1, save_best_only=True)
+
+print('Building model...')
+# Size of vector in the hidden layer.
+hidden_size = 128
+# Initialize Sequential Model
+model = Sequential()
+model.add(LSTM(hidden_size, input_shape=(maxlen, len(chars))))
+# Add the output layer that is a softmax of the number of characters
+model.add(Dense(len(chars), activation='softmax'))
+# Optimization through RMSprop
+optimizer_new = RMSprop()
+# Consider cross Entropy loss. Why? MLE of P(D | theta)
+model.compile(loss='categorical_crossentropy', optimizer=optimizer_new)
+
+if os.path.exists("saved_weights.hdf5"):
+    model.load_weights("saved_weights.hdf5")
+
+# cut the text in semi-redundant sequences of maxlen characters
+maxlen = 40 # Number of characters considered
+step = 1 # Stide of our window
+
 while True:
     text = data.get_batch(128)
-
-    # cut the text in semi-redundant sequences of maxlen characters
-    maxlen = 40 # Number of characters considered
-    step = 1 # Stide of our window
     sentences = []
     next_chars = []
 
@@ -49,88 +118,10 @@ while True:
         # Populate y with the character just after the sequence
         y[i, char_indices[next_chars[i]]] = 1
 
-
-    def sample(preds, temperature=1.0):
-        """Perform Temperature Sampling"""
-        # helper function to sample an index from a probability array
-        preds = np.asarray(preds).astype('float64')
-        preds = np.log(preds) / temperature
-        exp_preds = np.exp(preds)
-        # Softmax of predictions
-        preds = exp_preds / np.sum(exp_preds)
-        # Sample a single characters, with probabilities defined in `preds`
-        probas = np.random.multinomial(1, preds, 1)
-        return np.argmax(probas)
-
-
-    def on_epoch_end(epoch, _):
-        """Function invoked at end of each epoch. Prints generated text"""
-        print()
-        print('----- Generating text after Epoch: %d' % epoch)
-
-        start_index = random.randint(0, len(text) - maxlen - 1)
-        for diversity in [0.2, 0.5, 1.0, 1.2]:
-            print('----- Diversity:', diversity)
-
-            generated = ''
-            sentence = text[start_index: start_index + maxlen]
-            generated += sentence
-            print('----- Generating with seed: "' + sentence + '"')
-            sys.stdout.write(generated)
-
-            for i in range(400):
-                x_pred = np.zeros((1, maxlen, len(chars)))
-                for t, char in enumerate(sentence):
-                    x_pred[0, t, char_indices[char]] = 1.
-
-                preds = model.predict(x_pred, verbose=0)[0]
-                # Generate next character
-                next_index = sample(preds, diversity)
-                next_char = indices_char[next_index]
-                # Append character to generated sequence
-                generated += next_char
-                sentence = sentence[1:] + next_char
-
-                sys.stdout.write(next_char)
-                sys.stdout.flush()
-            print()
-
-        # Save model weights into file
-        model.save_weights('saved_weights.hdf5', overwrite=True)
-
-    # After every single epoch, we are going to call the function on_epoch_end
-    # to generate some text.
-    print_callback = LambdaCallback(on_epoch_end=on_epoch_end)
-    checkpointer = ModelCheckpoint(filepath='/tmp/weights.hdf5', verbose=1, save_best_only=True)
-
-
-    #%%
-    print('Building model...')
-    # Size of vector in the hidden layer.
-    hidden_size = 128
-    # Initialize Sequential Model
-    model = Sequential()
-    model.add(LSTM(hidden_size, input_shape=(maxlen, len(chars))))
-    # Add the output layer that is a softmax of the number of characters
-    model.add(Dense(len(chars), activation='softmax'))
-    # Optimization through RMSprop
-    optimizer_new = RMSprop()
-    # Consider cross Entropy loss. Why? MLE of P(D | theta)
-    model.compile(loss='categorical_crossentropy', optimizer=optimizer_new)
-
-    if os.path.exists("saved_weights.hdf5"):
-        model.load_weights("saved_weights.hdf5")
-
     model.fit(
         x,
         y,
-        batch_size=128,
+        batch_size=32,
         epochs=1,
         callbacks=[print_callback, checkpointer]
     )
-
-
-#%%
-
-
-
