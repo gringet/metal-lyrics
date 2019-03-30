@@ -48,10 +48,20 @@ class dataset:
 
     def parse_song(self, song):
         h = html2text.HTML2Text() 
-        sanity_chars = ['[', ']', '(', ')', '\\', '/', ' -', ':', ';', u'\uFFFD']
+        sanity_chars = [
+                '[', ']', '(', ')', '\\', '/', '-', ':', ';', u'\uFFFD',
+                '\x01', '\x07', '\x08', '\x12', '\x13', '\x19', '\x1a', '\x1b',
+                '#', '$', '%', '&', '*', '+', '-', '0', '1', '2', '3', '"', "'",
+                '4', '5', '6', '7', '8', '9', '<', '=', '>', '@', '^', '_', '`',
+                '{', '|', '}', '~', '\x7f', '¡', '¢', '£', '¤', '¥', '¦', '§', '¨',
+                'ª', '«', '¬', '\xad', '®', '¯', '°', '±', '²', '³', '´', 'µ', '¶', '¹',
+                'º', '»', '¼', '½', '¾', 'À', 'Á', 'Â', 'Ã', 'Ä', 'Å', 'Æ', 'Ç', 'È', 'É',
+                'Ê', 'Ë', 'Ì', 'Í', 'Î', 'Ï', 'Ð', 'Ñ', 'Ò', 'Ó', 'Ô', 'Õ', 'Ö', '×', 'Ø',
+                'Ù', 'Ú', 'Û', 'Ü', 'Ý', 'Þ', 'ß', 'ç', 'ð', 'ñ', '÷', 'ø', 'ý', 'þ', 'ÿ', '¿'
+        ]
         sanity_regexs = [
-            re.compile(r'\[([\w\d\s]*?)\]'),
-            re.compile(r'\(([\w\d\s]*?)\)')
+            re.compile(r'\[[\w\d\s]*?\]'),
+            re.compile(r'\([\w\d\s]*?\)')
         ]
         # translate html characters
         song = h.handle(song)
@@ -62,7 +72,11 @@ class dataset:
                 song = song.replace(match, '')
         # supress non wanted characters
         for sanity_char in sanity_chars:
-            song = song.replace(sanity_char, '')
+            if sanity_char in song:
+                return -1
+        for i in range(65, 65+26):
+             char = chr(i)
+             song = song.replace(char, char.lower())
         song = song.replace('\n', ' ')
         self.songs.append(song)
 

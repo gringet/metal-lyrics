@@ -12,20 +12,20 @@ from keras.layers import Dense
 from keras.layers import LSTM
 from keras.optimizers import RMSprop
 
-data = hfp.dataset('/home/gringet/workspace/data/lyrica')
+data = hfp.dataset('/home/ubuntu/workspace/lyrica')
 char_indices = data.char_indices
 indices_char = data.indices_char
 chars = data.chars
 batch_size = 128
-epochs = 1
+epochs = 1000
 steps = int(len(data.songs) / batch_size * epochs)
 
-for i in range(steps):
+while True:
     text = data.get_batch(128)
 
     # cut the text in semi-redundant sequences of maxlen characters
     maxlen = 40 # Number of characters considered
-    step = 3 # Stide of our window
+    step = 1 # Stide of our window
     sentences = []
     next_chars = []
 
@@ -34,18 +34,18 @@ for i in range(steps):
     for i in range(0, len(text) - maxlen, step):
         sentences.append(text[i: i + maxlen])
         # The character just after the sequence is the label
-        next_chars.append(text[i + maxlen]) 
+        next_chars.append(text[i + maxlen])
     print('nb sequences:', len(sentences))
 
     print('Vectorization...')
     # Initializing Tensor (training data)
-    x = np.zeros((len(sentences), maxlen, len(chars)), dtype=np.bool) 
+    x = np.zeros((len(sentences), maxlen, len(chars)), dtype=np.bool)
     # Initializing Output that holds next character (label)
-    y = np.zeros((len(sentences), len(chars)), dtype=np.bool) 
+    y = np.zeros((len(sentences), len(chars)), dtype=np.bool)
     for i, sentence in enumerate(sentences):
         for t, char in enumerate(sentence):
             # Populate Tensor Input
-            x[i, t, char_indices[char]] = 1 
+            x[i, t, char_indices[char]] = 1
         # Populate y with the character just after the sequence
         y[i, char_indices[next_chars[i]]] = 1
 
@@ -54,12 +54,12 @@ for i in range(steps):
         """Perform Temperature Sampling"""
         # helper function to sample an index from a probability array
         preds = np.asarray(preds).astype('float64')
-        preds = np.log(preds) / temperature 
+        preds = np.log(preds) / temperature
         exp_preds = np.exp(preds)
         # Softmax of predictions
-        preds = exp_preds / np.sum(exp_preds) 
+        preds = exp_preds / np.sum(exp_preds)
         # Sample a single characters, with probabilities defined in `preds`
-        probas = np.random.multinomial(1, preds, 1) 
+        probas = np.random.multinomial(1, preds, 1)
         return np.argmax(probas)
 
 
@@ -85,20 +85,18 @@ for i in range(steps):
 
                 preds = model.predict(x_pred, verbose=0)[0]
                 # Generate next character
-                next_index = sample(preds, diversity) 
+                next_index = sample(preds, diversity)
                 next_char = indices_char[next_index]
-                
                 # Append character to generated sequence
-                generated += next_char 
+                generated += next_char
                 sentence = sentence[1:] + next_char
 
                 sys.stdout.write(next_char)
                 sys.stdout.flush()
             print()
-        
+
         # Save model weights into file
         model.save_weights('saved_weights.hdf5', overwrite=True)
-            
 
     # After every single epoch, we are going to call the function on_epoch_end
     # to generate some text.
@@ -109,22 +107,22 @@ for i in range(steps):
     #%%
     print('Building model...')
     # Size of vector in the hidden layer.
-    hidden_size = 128 
+    hidden_size = 128
     # Initialize Sequential Model
     model = Sequential()
     model.add(LSTM(hidden_size, input_shape=(maxlen, len(chars))))
     # Add the output layer that is a softmax of the number of characters
-    model.add(Dense(len(chars), activation='softmax')) 
+    model.add(Dense(len(chars), activation='softmax'))
     # Optimization through RMSprop
-    optimizer_new = RMSprop() 
+    optimizer_new = RMSprop()
     # Consider cross Entropy loss. Why? MLE of P(D | theta)
-    model.compile(loss='categorical_crossentropy', optimizer=optimizer_new) 
+    model.compile(loss='categorical_crossentropy', optimizer=optimizer_new)
 
     if os.path.exists("saved_weights.hdf5"):
         model.load_weights("saved_weights.hdf5")
 
     model.fit(
-        x, 
+        x,
         y,
         batch_size=128,
         epochs=1,
